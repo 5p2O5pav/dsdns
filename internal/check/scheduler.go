@@ -170,50 +170,68 @@ func (s *Scheduler) runLocalCheck(ctx context.Context, taskID string) {
 	tx.Commit()
 }
 
+// analyzeAndNotify 分析本轮测活结果，对成功率低于阈值的记录发送告警
 func (s *Scheduler) analyzeAndNotify(ctx context.Context, taskID string) {
-	rows, err := s.db.QueryContext(ctx, `
-		SELECT record_id, AVG(CASE WHEN invalid=0 THEN success ELSE NULL END) as rate
-		FROM check_results
-		WHERE task_id = ? AND invalid = 0
-		GROUP BY record_id
-	`, taskID)
-	if err != nil {
-		logger.Error("query check results failed", "error", err)
-		return
-	}
-	defer rows.Close()
+    rows, err := s.db.QueryContext(ctx, `
+        SELECT record_id, AVG(CASE WHEN invalid=0 THEN success ELSE NULL END) as rate
+        FROM check_results
+        WHERE task_id = ? AND invalid = 0
+        GROUP BY record_id
+    `, taskID)
+    if err != nil {
+        logger.Error("query check results failed", "error", err)
+        return
+    }
+    defer rows.Close()
 
-	for rows.Next() {
-		var rid int64
-		var rate sql.NullFloat64
-		if err := rows.Scan(&rid, &rate); err != nil {
-			continue
-		}
-		if !rate.Valid || rate.Float64 >= s.successThreshold {
-			continue
-		}
-		var domain, recType, recValue string
-		err := s.db.QueryRowContext(ctx, `
-			SELECT d.domain, r.type, r.value
-			FROM records r JOIN domains d ON d.id = r.domain_id
-			WHERE r.id = ?
-		`, rid).Scan(&domain, &recType, &recValue)
-		if err != nil {
-			continue
-		}
-		content := fmt.Sprintf("⚠️ 健康度告警\n域名: %s\n记录: %s %s\n健康度: %.0f%% (低于阈值 %.0f%%)",
-			domain, recType, recValue, rate.Float64*100, s.successThreshold*100)
+    for rows.Next() {
+        var rid int64
+        var rate sql.NullFloat64
+        if err := rows.Scan(&rid, &rate); err != nil {
+            continue
+        }
+        if !rate.Valid || rate.Float64 >= s.successThreshold {
+            continue
+        }
 
-		var count int
-		s.db.QueryRowContext(ctx, `
-			SELECT COUNT(*) FROM notifications
-			WHERE type = 'record_invalid' AND content LIKE ? AND is_resolved = 0 AND created_at > datetime('now', '-1 hour')
-		`, "%"+domain+"%").Scan(&count)
-		if count == 0 {
-			s.db.ExecContext(ctx, `INSERT INTO notifications (type, content) VALUES (?, ?)`, "record_invalid", content)
-			if s.tgEnabled {
-				notify.SendTelegram(s.tgBotToken, s.tgChatID, content)
-			}
-		}
-	}
+        // 获取记录详情及所属用户ID
+        var domain, recType, recValue string
+        var userID sql.NullInt64
+        err := s.db.QueryRowContext(ctx, `
+            SELECT d.domain, r.type, r.value, u.id
+            FROM records r
+            JOIN domains d ON d.id = r.domain_id
+            JOIN users u ON u.id = d.user_id
+            WHERE r.id = ?
+        `, rid).Scan(&domain, &recType, &recValue, &userID)
+        if err != nil {
+            logger.Error("query record owner failed", "record_id", rid, "error", err)
+            continue
+        }
+
+        content := fmt.Sprintf("⚠️ 健康度告警\n域名: %s\n记录: %s %s\n健康度: %.0f%% (低于阈值 %.0f%%)",
+            domain, recType, recValue, rate.Float64*100, s.successThreshold*100)
+
+        // 检查最近1小时内是否已为相同域名+用户发送过告警（避免重复）
+        var count int
+        s.db.QueryRowContext(ctx, `
+            SELECT COUNT(*) FROM notifications
+            WHERE type = 'record_invalid' AND content LIKE ? AND user_id = ? AND created_at > datetime('now', '-1 hour')
+        `, "%"+domain+"%", userID).Scan(&count)
+
+        if count == 0 {
+            _, err = s.db.ExecContext(ctx, `
+                INSERT INTO notifications (type, content, user_id)
+                VALUES (?, ?, ?)
+            `, "record_invalid", content, userID)
+            if err != nil {
+                logger.Error("insert notification failed", "error", err)
+            }
+
+            // 发送 Telegram 告警（全局配置，与用户无关）
+            if s.tgEnabled {
+                notify.SendTelegram(s.tgBotToken, s.tgChatID, content)
+            }
+        }
+    }
 }
