@@ -15,6 +15,7 @@ import (
 
 func StartBackgroundTasks(db *sql.DB, cfg *config.Config) {
 	ctx, cancel := context.WithCancel(context.Background())
+	go cleanOldNotifications(ctx, db)
 	go heartbeatMonitor(ctx, db, cfg)
 	if cfg.Mode == "master" {
 		go checkScheduler(ctx, db, cfg)
