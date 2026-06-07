@@ -88,7 +88,7 @@ func (h *Handler) dashboardNotifications(w http.ResponseWriter, r *http.Request)
     }
     defer rows.Close()
 
-    var list []map[string]interface{}
+    list := make([]map[string]interface{}, 0)
     for rows.Next() {
         var id int64
         var typ, content, createdAt string
