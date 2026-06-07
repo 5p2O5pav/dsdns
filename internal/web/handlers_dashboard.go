@@ -267,7 +267,7 @@ func (h *Handler) recordHealth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer rows.Close()
-	var health []map[string]interface{}
+	health := make([]map[string]interface{}, 0)
 	for rows.Next() {
 		var rid int64
 		var domain, recType, recValue string
