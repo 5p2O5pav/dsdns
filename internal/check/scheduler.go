@@ -115,6 +115,11 @@ func (s *Scheduler) triggerNodeCheck(ctx context.Context, nodeID int64, endpoint
 }
 
 func (s *Scheduler) runLocalCheck(ctx context.Context, taskID string) {
+    defer func() {
+        if r := recover(); r != nil {
+            logger.Error("runLocalCheck panicked", "task_id", taskID, "panic", r)
+        }
+    }()
     logger.Info("Local check started", "task_id", taskID)
     startAll := time.Now()
 	rows, err := s.db.QueryContext(ctx, `SELECT id, type, value FROM records`)
@@ -138,7 +143,7 @@ func (s *Scheduler) runLocalCheck(ctx context.Context, taskID string) {
 	}
 
 	var results []map[string]interface{}
-    for i, rec := range records {
+    for _, rec := range records {
         start := time.Now()
         success, invalid, msg := CheckRecord(rec.Type, rec.Value)
         elapsed := time.Since(start)
