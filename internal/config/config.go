@@ -54,6 +54,10 @@ type Config struct {
 		APIListen            string `yaml:"api_listen"`
 		HeartbeatIntervalSec int    `yaml:"heartbeat_interval_sec"`
 	} `yaml:"node"`
+    Probe struct {
+        IPv4Enabled bool `yaml:"ipv4_enabled"`
+        IPv6Enabled bool `yaml:"ipv6_enabled"`
+    } `yaml:"probe"`
 }
 
 func Load(path string) (*Config, error) {
@@ -93,6 +97,12 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.Controller.CheckSuccessThreshold == 0 {
 		cfg.Controller.CheckSuccessThreshold = 0.5
+	}
+	if cfg.Probe.IPv4Enabled == nil {
+		cfg.Probe.IPv4Enabled = true
+	}
+	if cfg.Probe.IPv6Enabled == nil {
+  	  cfg.Probe.IPv6Enabled = true
 	}
 	// 子节点默认心跳间隔
 	if cfg.Node.HeartbeatIntervalSec == 0 {
