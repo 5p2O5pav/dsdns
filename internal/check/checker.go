@@ -1,4 +1,4 @@
-// checker.go 修改部分
+package check
 
 import (
     "time"
