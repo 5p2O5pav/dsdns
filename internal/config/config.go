@@ -55,8 +55,8 @@ type Config struct {
 		HeartbeatIntervalSec int    `yaml:"heartbeat_interval_sec"`
 	} `yaml:"node"`
     Probe struct {
-        IPv4Enabled bool `yaml:"ipv4_enabled"`
-        IPv6Enabled bool `yaml:"ipv6_enabled"`
+        IPv4Enabled *bool `yaml:"ipv4_enabled"`
+        IPv6Enabled *bool `yaml:"ipv6_enabled"`
     } `yaml:"probe"`
 }
 
@@ -69,6 +69,13 @@ func Load(path string) (*Config, error) {
 	if err := yaml.Unmarshal(data, cfg); err != nil {
 		return nil, err
 	}
+	// 强制要求必须配置 probe 字段
+    if cfg.Probe.IPv4Enabled == nil {
+        return nil, fmt.Errorf("missing required config: probe.ipv4_enabled (must be true or false)")
+    }
+    if cfg.Probe.IPv6Enabled == nil {
+        return nil, fmt.Errorf("missing required config: probe.ipv6_enabled (must be true or false)")
+    }
 	// 默认值
 	if cfg.JWT.ExpireHours == 0 {
 		cfg.JWT.ExpireHours = 24
