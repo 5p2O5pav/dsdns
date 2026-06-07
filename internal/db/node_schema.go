@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS records (
     FOREIGN KEY (domain_id) REFERENCES domains(id) ON DELETE CASCADE
 );
 
+-- 增量变更日志表
 CREATE TABLE IF NOT EXISTS sync_log (
     id INTEGER PRIMARY KEY,
     op TEXT NOT NULL,
@@ -39,6 +40,7 @@ CREATE TABLE IF NOT EXISTS sync_log (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 子节点 nodes 表（可选，用于兼容性）
 CREATE TABLE IF NOT EXISTS nodes (
     id INTEGER PRIMARY KEY,
     name TEXT,
