@@ -7,15 +7,29 @@ import (
     "dsdns/internal/logger"   // 确保引入项目 logger
 )
 
+var (
+    IPv4ProbeEnabled = true
+    IPv6ProbeEnabled = true
+)
+
+func SetProbeFlags(ipv4, ipv6 bool) {
+    IPv4ProbeEnabled = ipv4
+    IPv6ProbeEnabled = ipv6
+}
+
 func CheckRecord(recType, value string) (success bool, invalid bool, message string) {
-    logger.Debug("CheckRecord start", "type", recType, "value", value)
     switch recType {
     case "A":
+        if !IPv4ProbeEnabled {
+            return false, true, "IPv4 probe disabled"
+        }
         return pingIP(value)
     case "AAAA":
+        if !IPv6ProbeEnabled {
+            return false, true, "IPv6 probe disabled"
+        }
         if !hasIPv6() {
-            logger.Warn("Skip AAAA check: no IPv6 available", "value", value)
-            return false, true, "no IPv6"
+            return false, true, "no IPv6 available"
         }
         return pingIP(value)
     case "CNAME":
