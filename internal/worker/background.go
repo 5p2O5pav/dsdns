@@ -47,7 +47,8 @@ func heartbeatMonitor(ctx context.Context, db *sql.DB, cfg *config.Config) {
 				if status != "offline" {
 					db.ExecContext(ctx, `UPDATE nodes SET status = 'offline' WHERE id = ?`, id)
 					content := "节点 " + name + " 离线超过 " + strconv.Itoa(timeoutSec) + " 秒"
-					db.ExecContext(ctx, `INSERT INTO notifications (type, content) VALUES (?, ?)`, "node_offline", content)
+					// 离线告警
+					db.ExecContext(ctx, `INSERT INTO notifications (type, content, user_id) VALUES (?, ?, NULL)`, "node_offline", content)
 					if cfg.Telegram.Enabled {
 						notify.SendTelegram(cfg.Telegram.BotToken, cfg.Telegram.ChatID, content)
 					}
@@ -69,7 +70,7 @@ func heartbeatMonitor(ctx context.Context, db *sql.DB, cfg *config.Config) {
 				rows2.Scan(&id, &name, &lastSyncAt)
 				db.ExecContext(ctx, `UPDATE nodes SET status = 'online' WHERE id = ?`, id)
 				content := "节点 " + name + " 已恢复"
-				db.ExecContext(ctx, `INSERT INTO notifications (type, content, is_resolved) VALUES (?, ?, 1)`, "node_offline", content)
+				db.ExecContext(ctx, `INSERT INTO notifications (type, content, user_id) VALUES (?, ?, NULL)`, "node_online", content)
 				if cfg.Telegram.Enabled {
 					notify.SendTelegram(cfg.Telegram.BotToken, cfg.Telegram.ChatID, content)
 				}
