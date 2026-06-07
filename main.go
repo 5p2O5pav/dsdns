@@ -64,6 +64,8 @@ func runMaster(cfg *config.Config) {
 	}
 	defer geo.Close()
 
+	check.SetProbeFlags(cfg.Probe.IPv4Enabled, cfg.Probe.IPv6Enabled)
+
 	// DNS 服务（主控也提供 DNS 解析）
 	querier := &db.Querier{DB: database}
 	dnsServer := dns.New(cfg.DNS.Listen, querier, geoResolverAdapter{})
@@ -118,6 +120,8 @@ func runNode(cfg *config.Config) {
 		os.Exit(1)
 	}
 	defer geo.Close()
+
+	check.SetProbeFlags(cfg.Probe.IPv4Enabled, cfg.Probe.IPv6Enabled)
 
 	// DNS 服务
 	querier := &db.Querier{DB: database}
