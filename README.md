@@ -26,6 +26,12 @@ wget -O ip2region_v6.xdb https://raw.githubusercontent.com/lionsoul2014/ip2regio
 
 ```
 
+### 更新库
+```bash
+git fetch origin
+git reset --hard origin/main
+```
+
 ### 编译
 ```bash
 # 克隆仓库
