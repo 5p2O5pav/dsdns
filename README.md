@@ -50,6 +50,10 @@ go build -o dsdns .
 3. 赋予权限并启动：
    ```bash
    sudo setcap cap_net_raw+ep ./dsdns && \
+   
+   ```
+   
+   ```bash
    ./dsdns config.yaml
    
    ```
