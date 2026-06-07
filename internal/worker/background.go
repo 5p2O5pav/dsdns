@@ -109,3 +109,22 @@ func checkScheduler(ctx context.Context, db *sql.DB, cfg *config.Config) {
 		}
 	}
 }
+
+// 新增函数
+func cleanOldNotifications(ctx context.Context, db *sql.DB) {
+    ticker := time.NewTicker(6 * time.Hour) // 每6小时清理一次
+    defer ticker.Stop()
+    for {
+        select {
+        case <-ctx.Done():
+            return
+        case <-ticker.C:
+            _, err := db.ExecContext(ctx, `DELETE FROM notifications WHERE created_at < datetime('now', '-2 days')`)
+            if err != nil {
+                logger.Error("clean old notifications failed", "error", err)
+            } else {
+                logger.Debug("cleaned old notifications")
+            }
+        }
+    }
+}
