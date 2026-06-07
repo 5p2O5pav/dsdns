@@ -1,3 +1,10 @@
+if (typeof escapeHtml === 'undefined') {
+  window.escapeHtml = function(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m] || m));
+  };
+}
+
 let dashboardInterval = null;
 
 async function loadDashboardStats() {
