@@ -8,27 +8,48 @@ import (
 )
 
 func (h *Handler) dashboardStats(w http.ResponseWriter, r *http.Request) {
-	claims := getClaims(r)
-	if claims == nil || !claims.IsAdmin {
-		http.Error(w, "forbidden", http.StatusForbidden)
-		return
-	}
-	var totalDomains, totalRecords, onlineNodes, offlineNodes, todayNotif int
-	h.DB.QueryRow(`SELECT COUNT(*) FROM domains`).Scan(&totalDomains)
-	h.DB.QueryRow(`SELECT COUNT(*) FROM records`).Scan(&totalRecords)
-	h.DB.QueryRow(`SELECT COUNT(*) FROM nodes WHERE status='online'`).Scan(&onlineNodes)
-	h.DB.QueryRow(`SELECT COUNT(*) FROM nodes WHERE status='offline'`).Scan(&offlineNodes)
-	h.DB.QueryRow(`SELECT COUNT(*) FROM notifications WHERE date(created_at) = date('now')`).Scan(&todayNotif)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"code": 200,
-		"data": map[string]interface{}{
-			"total_domains":      totalDomains,
-			"total_records":      totalRecords,
-			"online_nodes":       onlineNodes,
-			"offline_nodes":      offlineNodes,
-			"today_notifications": todayNotif,
-		},
-	})
+    claims := getClaims(r)
+    if claims == nil {
+        http.Error(w, "unauthorized", http.StatusUnauthorized)
+        return
+    }
+
+    var totalDomains, totalRecords, onlineNodes, offlineNodes, todayNotif int
+
+    if claims.IsAdmin {
+        // 管理员看全局统计
+        h.DB.QueryRow(`SELECT COUNT(*) FROM domains`).Scan(&totalDomains)
+        h.DB.QueryRow(`SELECT COUNT(*) FROM records`).Scan(&totalRecords)
+        h.DB.QueryRow(`SELECT COUNT(*) FROM nodes WHERE status='online'`).Scan(&onlineNodes)
+        h.DB.QueryRow(`SELECT COUNT(*) FROM nodes WHERE status='offline'`).Scan(&offlineNodes)
+        h.DB.QueryRow(`SELECT COUNT(*) FROM notifications WHERE date(created_at) = date('now')`).Scan(&todayNotif)
+    } else {
+        // 普通用户只看自己的
+        h.DB.QueryRow(`SELECT COUNT(*) FROM domains WHERE user_id = ?`, claims.UserID).Scan(&totalDomains)
+        h.DB.QueryRow(`
+            SELECT COUNT(*) FROM records
+            JOIN domains ON domains.id = records.domain_id
+            WHERE domains.user_id = ?
+        `, claims.UserID).Scan(&totalRecords)
+        // 普通用户不需要节点信息，设为 0，前端隐藏即可
+        onlineNodes = 0
+        offlineNodes = 0
+        h.DB.QueryRow(`
+            SELECT COUNT(*) FROM notifications
+            WHERE user_id = ? AND date(created_at) = date('now')
+        `, claims.UserID).Scan(&todayNotif)
+    }
+
+    json.NewEncoder(w).Encode(map[string]interface{}{
+        "code": 200,
+        "data": map[string]interface{}{
+            "total_domains":       totalDomains,
+            "total_records":       totalRecords,
+            "online_nodes":        onlineNodes,
+            "offline_nodes":       offlineNodes,
+            "today_notifications": todayNotif,
+        },
+    })
 }
 
 func (h *Handler) dashboardNotifications(w http.ResponseWriter, r *http.Request) {
