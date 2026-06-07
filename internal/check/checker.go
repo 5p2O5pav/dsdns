@@ -3,7 +3,6 @@ package check
 import (
     "net"
     "time"
-    "fmt"
     "github.com/go-ping/ping"
     "dsdns/internal/logger"   // 确保引入项目 logger
 )
