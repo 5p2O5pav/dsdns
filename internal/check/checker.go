@@ -8,8 +8,8 @@ import (
 )
 
 var (
-    IPv4ProbeEnabled = true
-    IPv6ProbeEnabled = true
+    IPv4ProbeEnabled bool
+    IPv6ProbeEnabled bool
 )
 
 func SetProbeFlags(ipv4, ipv6 bool) {
