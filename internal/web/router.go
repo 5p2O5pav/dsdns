@@ -60,6 +60,7 @@ func (h *Handler) Start() error {
 	api.HandleFunc("/api/dashboard/stats", h.jwtAuth(h.dashboardStats))
 	api.HandleFunc("/api/dashboard/recent-notifications", h.jwtAuth(h.dashboardNotifications))
 	api.HandleFunc("/api/dashboard/record-health", h.jwtAuth(h.recordHealth))
+	api.HandleFunc("/api/dashboard/health-tree", h.jwtAuth(h.healthTree))
 	api.HandleFunc("/api/settings/telegram", h.jwtAuth(h.handleTelegramSettings))
 
 	api.HandleFunc("/api/node/heartbeat", h.nodeHeartbeat)
