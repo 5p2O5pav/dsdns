@@ -57,11 +57,12 @@ CREATE TABLE IF NOT EXISTS check_results (
     FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE
 );
 
+-- 新版 notifications 表，去掉 is_resolved，增加 user_id
 CREATE TABLE IF NOT EXISTS notifications (
     id INTEGER PRIMARY KEY,
     type TEXT NOT NULL,
     content TEXT,
-    user_id INTEGER,
+    user_id INTEGER,           -- 关联的用户 ID，NULL 表示节点告警或系统通知
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
@@ -78,3 +79,44 @@ const pragmas = `
 PRAGMA journal_mode=WAL;
 PRAGMA foreign_keys=ON;
 `
+
+// MigrateNotifications 升级旧表结构（如果存在 is_resolved 列）
+func MigrateNotifications(db *sql.DB) error {
+    // 检查 notifications 表是否有 is_resolved 列
+    var count int
+    err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('notifications') WHERE name='is_resolved'`).Scan(&count)
+    if err != nil {
+        return err
+    }
+    if count > 0 {
+        // 需要重建表
+        _, err = db.Exec(`
+            CREATE TABLE notifications_new (
+                id INTEGER PRIMARY KEY,
+                type TEXT NOT NULL,
+                content TEXT,
+                user_id INTEGER,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+            INSERT INTO notifications_new (id, type, content, created_at)
+            SELECT id, type, content, created_at FROM notifications;
+            DROP TABLE notifications;
+            ALTER TABLE notifications_new RENAME TO notifications;
+        `)
+        if err != nil {
+            return err
+        }
+    }
+    // 增加 user_id 列（如果不存在）
+    err = db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('notifications') WHERE name='user_id'`).Scan(&count)
+    if err != nil {
+        return err
+    }
+    if count == 0 {
+        _, err = db.Exec(`ALTER TABLE notifications ADD COLUMN user_id INTEGER REFERENCES users(id)`)
+        if err != nil {
+            return err
+        }
+    }
+    return nil
+}
