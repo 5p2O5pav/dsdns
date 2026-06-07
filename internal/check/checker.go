@@ -1,6 +1,7 @@
 package check
 
 import (
+    "net"
     "time"
     "fmt"
     "github.com/go-ping/ping"
