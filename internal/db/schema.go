@@ -33,7 +33,6 @@ CREATE TABLE IF NOT EXISTS records (
 CREATE INDEX IF NOT EXISTS idx_records_domain_id ON records(domain_id);
 CREATE INDEX IF NOT EXISTS idx_domains_domain ON domains(domain);
 
--- 节点表（包含 last_sync_at 列）
 CREATE TABLE IF NOT EXISTS nodes (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
@@ -45,7 +44,6 @@ CREATE TABLE IF NOT EXISTS nodes (
     last_sync_at DATETIME
 );
 
--- 测活结果表
 CREATE TABLE IF NOT EXISTS check_results (
     id INTEGER PRIMARY KEY,
     record_id INTEGER NOT NULL,
@@ -59,16 +57,15 @@ CREATE TABLE IF NOT EXISTS check_results (
     FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE
 );
 
--- 通知表
 CREATE TABLE IF NOT EXISTS notifications (
     id INTEGER PRIMARY KEY,
     type TEXT NOT NULL,
     content TEXT,
-    is_resolved INTEGER DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    user_id INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- 增量变更日志表
 CREATE TABLE IF NOT EXISTS sync_log (
     id INTEGER PRIMARY KEY,
     op TEXT NOT NULL,
