@@ -23,6 +23,10 @@ func Open(path string) (*sql.DB, error) {
 	if _, err := db.Exec(schema); err != nil {
 		return nil, err
 	}
+    // 执行通知表结构迁移
+    if err := MigrateNotifications(db); err != nil {
+        return nil, err
+    }
 	return db, nil
 }
 
@@ -42,6 +46,10 @@ func OpenNodeDB(path string) (*sql.DB, error) {
 	if _, err := db.Exec(nodeSchema); err != nil {
 		return nil, err
 	}
+    // 执行通知表结构迁移
+    if err := MigrateNotifications(db); err != nil {
+        return nil, err
+    }
 	return db, nil
 }
 
