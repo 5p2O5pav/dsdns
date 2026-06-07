@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 
 	"gopkg.in/yaml.v3"
@@ -54,10 +55,13 @@ type Config struct {
 		APIListen            string `yaml:"api_listen"`
 		HeartbeatIntervalSec int    `yaml:"heartbeat_interval_sec"`
 	} `yaml:"node"`
-    Probe struct {
-        IPv4Enabled *bool `yaml:"ipv4_enabled"`
-        IPv6Enabled *bool `yaml:"ipv6_enabled"`
-    } `yaml:"probe"`
+
+	// 测活能力配置（使用指针 bool 以便区分“未配置”和“配置为 false”）
+	// 必须显式配置，程序不提供默认值
+	Probe struct {
+		IPv4Enabled *bool `yaml:"ipv4_enabled"`
+		IPv6Enabled *bool `yaml:"ipv6_enabled"`
+	} `yaml:"probe"`
 }
 
 func Load(path string) (*Config, error) {
@@ -69,14 +73,8 @@ func Load(path string) (*Config, error) {
 	if err := yaml.Unmarshal(data, cfg); err != nil {
 		return nil, err
 	}
-	// 强制要求必须配置 probe 字段
-    if cfg.Probe.IPv4Enabled == nil {
-        return nil, fmt.Errorf("missing required config: probe.ipv4_enabled (must be true or false)")
-    }
-    if cfg.Probe.IPv6Enabled == nil {
-        return nil, fmt.Errorf("missing required config: probe.ipv6_enabled (must be true or false)")
-    }
-	// 默认值
+
+	// 以下配置项提供默认值（非强制）
 	if cfg.JWT.ExpireHours == 0 {
 		cfg.JWT.ExpireHours = 24
 	}
@@ -87,9 +85,8 @@ func Load(path string) (*Config, error) {
 		cfg.Log.Level = "error"
 	}
 	if cfg.Mode == "" {
-		cfg.Mode = "master" // 默认主控
+		cfg.Mode = "master"
 	}
-	// Controller 默认值
 	if cfg.Controller.SyncTimeoutSec == 0 {
 		cfg.Controller.SyncTimeoutSec = 10
 	}
@@ -105,15 +102,19 @@ func Load(path string) (*Config, error) {
 	if cfg.Controller.CheckSuccessThreshold == 0 {
 		cfg.Controller.CheckSuccessThreshold = 0.5
 	}
-	if cfg.Probe.IPv4Enabled == nil {
-		cfg.Probe.IPv4Enabled = true
-	}
-	if cfg.Probe.IPv6Enabled == nil {
-  	  cfg.Probe.IPv6Enabled = true
-	}
-	// 子节点默认心跳间隔
 	if cfg.Node.HeartbeatIntervalSec == 0 {
 		cfg.Node.HeartbeatIntervalSec = 120
 	}
+
+	// 强制要求 probe 配置，不提供默认值
+	// 使用指针 *bool 是因为 bool 的零值是 false，无法区分“用户设为 false”和“用户未配置”
+	// 用户必须在配置文件中显式写入 ipv4_enabled 和 ipv6_enabled 字段
+	if cfg.Probe.IPv4Enabled == nil {
+		return nil, fmt.Errorf("missing required config: probe.ipv4_enabled (must be true or false)")
+	}
+	if cfg.Probe.IPv6Enabled == nil {
+		return nil, fmt.Errorf("missing required config: probe.ipv6_enabled (must be true or false)")
+	}
+
 	return cfg, nil
 }
