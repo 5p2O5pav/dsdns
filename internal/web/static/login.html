@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DSDNS 登录</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="login-body">
+  <div class="login-card">
+    <div class="logo">🌐 DSDNS 智能解析</div>
+    <div id="login-form" style="display:none;">
+      <h2>登录</h2>
+      <input type="text" id="login-username" placeholder="用户名">
+      <input type="password" id="login-password" placeholder="密码">
+      <button id="login-btn" class="btn btn-primary full-width">登录</button>
+      <p class="error-msg" id="login-error"></p>
+    </div>
+    <div id="register-form" style="display:none;">
+      <h2>创建管理员账户</h2>
+      <input type="text" id="reg-username" placeholder="用户名">
+      <input type="password" id="reg-password" placeholder="密码">
+      <button id="register-btn" class="btn btn-primary full-width">注册</button>
+      <p class="error-msg" id="reg-error"></p>
+      <p class="info-msg">这是系统第一个管理员账户</p>
+    </div>
+  </div>
+
+  <script src="/static/js/api.js"></script>
+  <script>
+    (async function() {
+      const res = await api('/status');
+      const hasAdmin = res.has_admin;
+      if (hasAdmin) {
+        document.getElementById('login-form').style.display = 'block';
+      } else {
+        document.getElementById('register-form').style.display = 'block';
+      }
+
+      document.getElementById('login-btn')?.addEventListener('click', async () => {
+        const u = document.getElementById('login-username').value.trim();
+        const p = document.getElementById('login-password').value;
+        try {
+          const data = await api('/login', {
+            method: 'POST',
+            body: JSON.stringify({ username: u, password: p })
+          });
+          localStorage.setItem('token', data.token);
+          window.location.href = '/static/index.html';
+        } catch(e) {
+          document.getElementById('login-error').textContent = e.message;
+        }
+      });
+
+      document.getElementById('register-btn')?.addEventListener('click', async () => {
+        const u = document.getElementById('reg-username').value.trim();
+        const p = document.getElementById('reg-password').value;
+        try {
+          await api('/register', {
+            method: 'POST',
+            body: JSON.stringify({ username: u, password: p })
+          });
+          alert('注册成功，请登录');
+          window.location.reload();
+        } catch(e) {
+          document.getElementById('reg-error').textContent = e.message;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

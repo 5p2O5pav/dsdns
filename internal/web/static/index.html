@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DSDNS 管理面板</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- 左侧导航栏 -->
+    <nav class="sidebar">
+      <div class="logo">🌐 DSDNS</div>
+      <ul id="nav-menu">
+        <li data-module="dashboard" class="nav-item">📊 仪表盘</li>
+        <li data-module="domains" class="nav-item active">🌍 域名管理</li>
+        <li data-module="nodes" class="nav-item admin-only" style="display:none;">🖥️ 节点管理</li>
+        <li data-module="users" class="nav-item admin-only" style="display:none;">👥 用户管理</li>
+        <li data-module="settings" class="nav-item admin-only" style="display:none;">⚙️ Telegram 设置</li>
+      </ul>
+      <div class="sidebar-footer">
+        <span id="user-info"></span>
+        <button id="logout-btn" class="btn btn-sm btn-danger">退出</button>
+      </div>
+    </nav>
+
+    <!-- 右侧内容区 -->
+    <main class="main-content">
+      <!-- 每个模块的容器 -->
+      <div id="module-dashboard" class="module" style="display:none;"></div>
+      <div id="module-domains" class="module" style="display:block;"></div>
+      <div id="module-nodes" class="module" style="display:none;"></div>
+      <div id="module-users" class="module" style="display:none;"></div>
+      <div id="module-settings" class="module" style="display:none;"></div>
+    </main>
+  </div>
+
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/auth.js"></script>
+  <script src="/static/js/domains.js"></script>
+  <script src="/static/js/nodes.js"></script>
+  <script src="/static/js/dashboard.js"></script>
+  <script src="/static/js/users.js"></script>
+  <script src="/static/js/settings.js"></script>
+  <script>
+    // 全局变量：当前活跃模块
+    let currentModule = 'domains';
+    let dashboardTimer = null;
+
+    // 切换模块
+    function switchModule(moduleName) {
+      if (currentModule === moduleName) return;
+      // 隐藏所有模块
+      document.querySelectorAll('.module').forEach(el => el.style.display = 'none');
+      // 显示目标模块
+      const target = document.getElementById('module-' + moduleName);
+      if (target) target.style.display = 'block';
+      // 高亮菜单
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+      document.querySelector(`[data-module="${moduleName}"]`)?.classList.add('active');
+
+      // 清理旧模块定时器
+      if (currentModule === 'dashboard' && dashboardTimer) {
+        clearInterval(dashboardTimer);
+        dashboardTimer = null;
+      }
+      // 初始化新模块
+      if (moduleName === 'domains') initDomains();
+      else if (moduleName === 'nodes') initNodes();
+      else if (moduleName === 'dashboard') initDashboard();
+      else if (moduleName === 'users') initUsers();
+      else if (moduleName === 'settings') initSettings();
+
+      currentModule = moduleName;
+    }
+
+    // 检查管理员权限并显示菜单
+    function setupAdminUI() {
+      const isAdm = isAdmin();
+      document.querySelectorAll('.admin-only').forEach(el => {
+        el.style.display = isAdm ? 'block' : 'none';
+      });
+      // 如果当前用户在非管理员模块（域名管理总是可见），无需调整
+      if (!isAdm && ['nodes','dashboard','users','settings'].includes(currentModule)) {
+        switchModule('domains');
+      }
+    }
+
+    // 启动
+    document.addEventListener('DOMContentLoaded', async () => {
+      if (!localStorage.getItem('token')) {
+        window.location.href = '/static/login.html';
+        return;
+      }
+      const info = getUserInfo();
+      if (!info) {
+        window.location.href = '/static/login.html';
+        return;
+      }
+      document.getElementById('user-info').textContent = `用户 ${info.uid}`;
+      setupAdminUI();
+
+      // 绑定导航点击
+      document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', () => {
+          switchModule(item.dataset.module);
+        });
+      });
+
+      // 退出
+      document.getElementById('logout-btn').addEventListener('click', () => {
+        localStorage.removeItem('token');
+        window.location.href = '/static/login.html';
+      });
+
+      // 默认加载域名管理
+      initDomains();
+    });
+  </script>
+</body>
+</html>
