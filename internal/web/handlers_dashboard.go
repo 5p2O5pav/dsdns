@@ -103,6 +103,149 @@ func (h *Handler) dashboardNotifications(w http.ResponseWriter, r *http.Request)
     json.NewEncoder(w).Encode(map[string]interface{}{"code": 200, "data": list})
 }
 
+func (h *Handler) healthTree(w http.ResponseWriter, r *http.Request) {
+    claims := getClaims(r)
+    if claims == nil {
+        http.Error(w, "unauthorized", http.StatusUnauthorized)
+        return
+    }
+
+    type RecordHealth struct {
+        RecordID    int64   `json:"record_id"`
+        Type        string  `json:"type"`
+        Value       string  `json:"value"`
+        SuccessRate float64 `json:"success_rate"`
+        LastCheck   string  `json:"last_check"`
+    }
+    type DomainHealth struct {
+        DomainID   int64          `json:"domain_id"`
+        DomainName string         `json:"domain_name"`
+        Records    []RecordHealth `json:"records"`
+    }
+    type UserHealth struct {
+        UserID   int64          `json:"user_id"`
+        Username string         `json:"username"`
+        Domains  []DomainHealth `json:"domains"`
+    }
+
+    if claims.IsAdmin {
+        // 管理员：获取所有用户，再按用户获取域名和记录健康度
+        userRows, err := h.DB.Query(`SELECT id, username FROM users ORDER BY id`)
+        if err != nil {
+            http.Error(w, "db error", http.StatusInternalServerError)
+            return
+        }
+        defer userRows.Close()
+        var result []UserHealth
+        for userRows.Next() {
+            var uid int64
+            var uname string
+            userRows.Scan(&uid, &uname)
+            uh := UserHealth{UserID: uid, Username: uname}
+
+            domainRows, err := h.DB.Query(`
+                SELECT id, domain FROM domains WHERE user_id = ? ORDER BY id
+            `, uid)
+            if err != nil {
+                continue
+            }
+            for domainRows.Next() {
+                var did int64
+                var dname string
+                domainRows.Scan(&did, &dname)
+                dh := DomainHealth{DomainID: did, DomainName: dname}
+
+                recRows, err := h.DB.Query(`
+                    SELECT r.id, r.type, r.value,
+                           AVG(CASE WHEN cr.invalid=0 THEN cr.success ELSE NULL END) as rate,
+                           MAX(cr.checked_at) as last_check
+                    FROM records r
+                    LEFT JOIN check_results cr ON cr.record_id = r.id
+                    WHERE r.domain_id = ?
+                    GROUP BY r.id
+                `, did)
+                if err != nil {
+                    continue
+                }
+                for recRows.Next() {
+                    var rid int64
+                    var rtype, rvalue string
+                    var rate sql.NullFloat64
+                    var lastCheck sql.NullString
+                    recRows.Scan(&rid, &rtype, &rvalue, &rate, &lastCheck)
+                    successRate := 0.0
+                    if rate.Valid {
+                        successRate = rate.Float64
+                    }
+                    dh.Records = append(dh.Records, RecordHealth{
+                        RecordID:    rid,
+                        Type:        rtype,
+                        Value:       rvalue,
+                        SuccessRate: successRate,
+                        LastCheck:   lastCheck.String,
+                    })
+                }
+                recRows.Close()
+                uh.Domains = append(uh.Domains, dh)
+            }
+            domainRows.Close()
+            result = append(result, uh)
+        }
+        json.NewEncoder(w).Encode(map[string]interface{}{"code": 200, "data": result})
+    } else {
+        // 普通用户：直接返回自己的域名和记录健康度
+        domainRows, err := h.DB.Query(`
+            SELECT id, domain FROM domains WHERE user_id = ? ORDER BY id
+        `, claims.UserID)
+        if err != nil {
+            http.Error(w, "db error", http.StatusInternalServerError)
+            return
+        }
+        defer domainRows.Close()
+        var result []DomainHealth
+        for domainRows.Next() {
+            var did int64
+            var dname string
+            domainRows.Scan(&did, &dname)
+            dh := DomainHealth{DomainID: did, DomainName: dname}
+
+            recRows, err := h.DB.Query(`
+                SELECT r.id, r.type, r.value,
+                       AVG(CASE WHEN cr.invalid=0 THEN cr.success ELSE NULL END) as rate,
+                       MAX(cr.checked_at) as last_check
+                FROM records r
+                LEFT JOIN check_results cr ON cr.record_id = r.id
+                WHERE r.domain_id = ?
+                GROUP BY r.id
+            `, did)
+            if err != nil {
+                continue
+            }
+            for recRows.Next() {
+                var rid int64
+                var rtype, rvalue string
+                var rate sql.NullFloat64
+                var lastCheck sql.NullString
+                recRows.Scan(&rid, &rtype, &rvalue, &rate, &lastCheck)
+                successRate := 0.0
+                if rate.Valid {
+                    successRate = rate.Float64
+                }
+                dh.Records = append(dh.Records, RecordHealth{
+                    RecordID:    rid,
+                    Type:        rtype,
+                    Value:       rvalue,
+                    SuccessRate: successRate,
+                    LastCheck:   lastCheck.String,
+                })
+            }
+            recRows.Close()
+            result = append(result, dh)
+        }
+        json.NewEncoder(w).Encode(map[string]interface{}{"code": 200, "data": result})
+    }
+}
+
 func (h *Handler) recordHealth(w http.ResponseWriter, r *http.Request) {
 	claims := getClaims(r)
 	if claims == nil || !claims.IsAdmin {
