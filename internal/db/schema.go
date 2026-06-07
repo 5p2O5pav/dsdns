@@ -1,5 +1,9 @@
 package db
 
+import (
+    "database/sql"
+)
+
 const schema = `
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY,
