@@ -136,7 +136,7 @@ func (h *Handler) healthTree(w http.ResponseWriter, r *http.Request) {
             return
         }
         defer userRows.Close()
-        var result []UserHealth
+        result := make([]UserHealth, 0)
         for userRows.Next() {
             var uid int64
             var uname string
@@ -202,7 +202,7 @@ func (h *Handler) healthTree(w http.ResponseWriter, r *http.Request) {
             return
         }
         defer domainRows.Close()
-        var result []DomainHealth
+        result := make([]DomainHealth, 0)
         for domainRows.Next() {
             var did int64
             var dname string
