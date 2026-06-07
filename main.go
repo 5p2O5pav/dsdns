@@ -17,6 +17,7 @@ import (
 	"dsdns/internal/node"
 	"dsdns/internal/web"
 	"dsdns/internal/worker"
+	"dsdns/internal/check"
 )
 
 func main() {
