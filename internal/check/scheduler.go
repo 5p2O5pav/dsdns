@@ -115,6 +115,8 @@ func (s *Scheduler) triggerNodeCheck(ctx context.Context, nodeID int64, endpoint
 }
 
 func (s *Scheduler) runLocalCheck(ctx context.Context, taskID string) {
+    logger.Info("Local check started", "task_id", taskID)
+    startAll := time.Now()
 	rows, err := s.db.QueryContext(ctx, `SELECT id, type, value FROM records`)
 	if err != nil {
 		logger.Error("query records for local check failed", "error", err)
@@ -136,8 +138,18 @@ func (s *Scheduler) runLocalCheck(ctx context.Context, taskID string) {
 	}
 
 	var results []map[string]interface{}
-	for _, rec := range records {
-		success, invalid, msg := CheckRecord(rec.Type, rec.Value)
+    for i, rec := range records {
+        start := time.Now()
+        success, invalid, msg := CheckRecord(rec.Type, rec.Value)
+        elapsed := time.Since(start)
+        logger.Debug("Check record", 
+            "record_id", rec.ID, 
+            "type", rec.Type, 
+            "value", rec.Value,
+            "success", success,
+            "invalid", invalid,
+            "message", msg,
+            "elapsed_ms", elapsed.Milliseconds())
 		results = append(results, map[string]interface{}{
 			"record_id": rec.ID,
 			"success":   success,
@@ -168,6 +180,7 @@ func (s *Scheduler) runLocalCheck(ctx context.Context, taskID string) {
 		stmt.Exec(res["record_id"], successInt, res["message"], invalidInt, taskID)
 	}
 	tx.Commit()
+    logger.Info("Local check finished", "task_id", taskID, "total_ms", time.Since(startAll).Milliseconds())
 }
 
 // analyzeAndNotify 分析本轮测活结果，对成功率低于阈值的记录发送告警
