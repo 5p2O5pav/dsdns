@@ -49,7 +49,7 @@ go build -o dsdns .
 2. 将 `ip2region.xdb` 和 `GeoLite2-Country.mmdb` 放到配置指定的路径（默认项目根目录）。
 3. 赋予权限并启动：
    ```bash
-   sudo setcap cap_net_raw+ep ./dsdns && \
+   sudo setcap cap_net_raw+ep ./dsdns
    
    ```
    
