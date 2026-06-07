@@ -53,34 +53,54 @@ func (h *Handler) dashboardStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) dashboardNotifications(w http.ResponseWriter, r *http.Request) {
-	limit := 20
-	if l := r.URL.Query().Get("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
-			limit = parsed
-		}
-	}
-	rows, err := h.DB.Query(`SELECT id, type, content, is_resolved, created_at FROM notifications ORDER BY created_at DESC LIMIT ?`, limit)
-	if err != nil {
-		http.Error(w, "db error", http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-	var list []map[string]interface{}
-	for rows.Next() {
-		var id int64
-		var typ, content string
-		var isResolved int
-		var createdAt string
-		rows.Scan(&id, &typ, &content, &isResolved, &createdAt)
-		list = append(list, map[string]interface{}{
-			"id":          id,
-			"type":        typ,
-			"content":     content,
-			"is_resolved": isResolved == 1,
-			"created_at":  createdAt,
-		})
-	}
-	json.NewEncoder(w).Encode(map[string]interface{}{"code": 200, "data": list})
+    claims := getClaims(r)
+    if claims == nil {
+        http.Error(w, "unauthorized", http.StatusUnauthorized)
+        return
+    }
+    limit := 20
+    if l := r.URL.Query().Get("limit"); l != "" {
+        if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
+            limit = parsed
+        }
+    }
+
+    var rows *sql.Rows
+    var err error
+    if claims.IsAdmin {
+        // 管理员：显示所有 node 告警 + 自己域名的记录告警
+        rows, err = h.DB.Query(`
+            SELECT id, type, content, created_at FROM notifications
+            WHERE (type = 'node_offline' OR type = 'node_online' OR user_id = ?)
+            ORDER BY created_at DESC LIMIT ?
+        `, claims.UserID, limit)
+    } else {
+        // 普通用户只显示自己域名的记录告警
+        rows, err = h.DB.Query(`
+            SELECT id, type, content, created_at FROM notifications
+            WHERE user_id = ? AND type = 'record_invalid'
+            ORDER BY created_at DESC LIMIT ?
+        `, claims.UserID, limit)
+    }
+    if err != nil {
+        http.Error(w, "db error", http.StatusInternalServerError)
+        return
+    }
+    defer rows.Close()
+
+    var list []map[string]interface{}
+    for rows.Next() {
+        var id int64
+        var typ, content, createdAt string
+        rows.Scan(&id, &typ, &content, &createdAt)
+        list = append(list, map[string]interface{}{
+            "id":         id,
+            "type":       typ,
+            "content":    content,
+            "created_at": createdAt,
+        })
+    }
+    json.NewEncoder(w).Encode(map[string]interface{}{"code": 200, "data": list})
 }
 
 func (h *Handler) recordHealth(w http.ResponseWriter, r *http.Request) {
