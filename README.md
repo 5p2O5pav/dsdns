@@ -142,6 +142,13 @@ cache:
 upx --best dsdns
 ```
 
+还可以把打包好的可执行文件打包压缩包
+
+```bash
+tar -czf /root/dsdns/dsdns.tar.gz -C /root/dsdns dsdns
+
+```
+
 ## 许可证
 MIT License
 
