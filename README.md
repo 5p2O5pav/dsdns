@@ -137,9 +137,10 @@ cache:
 
 ## 构建最小二进制（可选）
 项目已使用 `modernc.org/sqlite` 纯 Go 驱动，无 CGO 依赖，编译出的二进制仅约 15~20MB。  
-可以通过 `upx` 进一步压缩：
+不需要调试信息，追求最小的可执行文件，可以执行这个进行打包
 ```bash
-upx --best dsdns
+CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o dsdns .
+
 ```
 
 还可以把打包好的可执行文件打包压缩包
