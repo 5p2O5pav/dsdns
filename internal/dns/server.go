@@ -87,7 +87,29 @@ func (s *Server) handleDNS(w dns.ResponseWriter, r *dns.Msg) {
 		return
 	}
 
-	best := matchRecord(records, geoInfo)
+	// 先过滤出与查询类型匹配的记录
+filtered := make([]*models.Record, 0, len(records))
+
+for _, rec := range records {
+    switch rec.Type {
+    case models.TypeA:
+        if q.Qtype == dns.TypeA {
+            filtered = append(filtered, rec)
+        }
+    case models.TypeAAAA:
+        if q.Qtype == dns.TypeAAAA {
+            filtered = append(filtered, rec)
+        }
+    case models.TypeCNAME:
+        if q.Qtype == dns.TypeA ||
+            q.Qtype == dns.TypeAAAA ||
+            q.Qtype == dns.TypeCNAME {
+            filtered = append(filtered, rec)
+        }
+    }
+}
+
+best := matchRecord(filtered, geoInfo)
 	if best == nil {
 		logger.Warn("no matching record", "domain", domain)
 		m.SetRcode(r, dns.RcodeNameError)
